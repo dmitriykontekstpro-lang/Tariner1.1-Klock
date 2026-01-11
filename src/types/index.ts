@@ -132,3 +132,51 @@ export interface NutritionPlan {
     fats: number;
     carbs: number;
 }
+
+// --- FOOD DIARY TYPES ---
+
+export type MealType = 'BREAKFAST' | 'LUNCH' | 'DINNER' | 'SNACK';
+
+export interface FoodEntry {
+    id: string;                    // UUID
+    userId: string;                // Device/User ID
+    created_at: string;            // ISO timestamp
+    date: string;                  // YYYY-MM-DD (для группировки по дням)
+
+    // User Input
+    photoUri: string;              // Local file path (file://...)
+    userHints?: string;            // "500г куриной грудки, отварная"
+    mealType?: MealType;           // Завтрак/Обед/Ужин/Перекус
+
+    // AI Analysis Result
+    analyzed: boolean;             // false пока не проанализировано
+    foodName?: string;             // "Куриная грудка отварная"
+    calories?: number;             // ккал
+    protein?: number;              // г
+    fats?: number;                 // г
+    carbs?: number;                // г
+    portion?: string;              // "200г" или "1 порция"
+    weight?: number;               // граммы (число)
+    foodType?: string;             // тип еды (Мясо и т.д.)
+
+    // Sync
+    syncedToSupabase: boolean;     // true если выгружено в облако
+    supabaseId?: string;           // ID записи в Supabase
+}
+
+export interface DailyNutritionSummary {
+    date: string;                  // YYYY-MM-DD
+    totalCalories: number;
+    totalProtein: number;
+    totalFats: number;
+    totalCarbs: number;
+
+    // Progress vs Target (from UserProfile NutritionPlan)
+    caloriesProgress: number;      // 0-100+ (%)
+    proteinProgress: number;
+    fatsProgress: number;
+    carbsProgress: number;
+
+    entries: FoodEntry[];          // Все записи за день
+}
+

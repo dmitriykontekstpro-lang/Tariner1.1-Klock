@@ -1,48 +1,49 @@
 import './global.css';
 import React, { useState, useEffect } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { INITIAL_SCHEDULE, INITIAL_TEMPLATES, DAYS_OF_WEEK } from './src/data';
-import { TimelineBlock, WeeklySchedule, WorkoutTemplate, WorkoutSettings, UserProfile, NutritionPlan } from './src/types';
-import { prepareWorkoutTimeline } from './src/utils/progression';
-import { preGenerateTimelineAudio } from './src/utils/generator';
-import { initUserId } from './src/lib/supabaseClient';
-import { Lobby } from './src/components/Lobby';
-import { Settings } from './src/components/Settings';
-import { Dashboard } from './src/components/Dashboard';
-import { PrepScreen } from './src/components/PrepScreen';
-import { OnboardingScreen } from './src/components/Onboarding/OnboardingScreen';
-import { TrainerModal } from './src/components/TrainerModal';
-import { loadLocalHistory, HistoryState } from './src/utils/historyStore';
-import { useFonts } from 'expo-font';
+import { supabase } from './src/lib/supabaseClient';
 
-const DEFAULT_WORKOUT_SETTINGS: WorkoutSettings = {
-  setsPerExercise: 3,
-  setDuration: 60,
-  restBetweenSets: 30,
-  restBetweenExercises: 120,
-  repsPerSet: 8
-};
+import {
+  UserProfile,
+  WorkoutTemplate,
+  WeeklySchedule,
+  ExerciseHistory,
+  TimelineBlock
+} from './src/types';
+import { INITIAL_TEMPLATES, INITIAL_SCHEDULE } from './src/data';
+import { initUserId } from './src/lib/supabaseClient';
+import { loadLocalHistory, HistoryState, getLastWorkoutDate } from './src/utils/historyStore';
+import { startFoodDiarySyncService } from './src/utils/backgroundSync';
+
+// Screens
+import { OnboardingScreen } from './src/components/Onboarding/OnboardingScreen';
+import { Lobby } from './src/components/Lobby';
+import { PrepScreen } from './src/components/PrepScreen';
+import { Dashboard as ActiveWorkoutScreen } from './src/components/Dashboard';
+import { Settings } from './src/components/Settings';
 
 export default function App() {
-  const [userId, setUserId] = useState<string | null>(null);
   const [appReady, setAppReady] = useState(false);
-  const [view, setView] = useState<'LOBBY' | 'PREP' | 'WORKOUT' | 'SETTINGS'>('LOBBY');
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // User State
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [showTrainerModal, setShowTrainerModal] = useState(false);
-
-  // App State
-  const [templates, setTemplates] = useState<WorkoutTemplate[]>(INITIAL_TEMPLATES);
-  const [schedule, setSchedule] = useState<WeeklySchedule>(INITIAL_SCHEDULE);
-  const [workoutSettings, setWorkoutSettings] = useState<WorkoutSettings>(DEFAULT_WORKOUT_SETTINGS);
-
-  // Local History State
-  const [history, setHistory] = useState<HistoryState>({});
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   // Workout State
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>(INITIAL_TEMPLATES);
+  const [schedule, setSchedule] = useState<WeeklySchedule>(INITIAL_SCHEDULE);
+  const [history, setHistory] = useState<HistoryState>({});
+
+  // Navigation State
+  const [view, setView] = useState<'LOBBY' | 'PREP' | 'WORKOUT' | 'SETTINGS'>('LOBBY');
+  const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null);
+
+  // Active Workout Session State
   const [activeTimeline, setActiveTimeline] = useState<TimelineBlock[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -50,13 +51,13 @@ export default function App() {
   useEffect(() => {
     const init = async () => {
       await initUserId();
+      checkWorkoutStatus();
       try {
         // Check Onboarding
         const savedProfile = await AsyncStorage.getItem('user_profile');
         if (savedProfile) {
           setUserProfile(JSON.parse(savedProfile));
         }
-        // else { setShowOnboarding(true); } // Disabled per request
 
         // Load workout settings & history
         const saved = await AsyncStorage.getItem('workout_settings');
@@ -80,6 +81,9 @@ export default function App() {
         console.error('Failed to load settings', e);
       }
       setAppReady(true);
+
+      // Start Food Diary background sync
+      startFoodDiarySyncService();
     };
     init();
   }, []);
@@ -90,182 +94,118 @@ export default function App() {
   const todayTemplateId = schedule[todayIndex];
   const todayTemplate = templates.find(t => t.id === todayTemplateId);
 
-  // NEW: Background Sync Logic with Local History
-  useEffect(() => {
-    if (!appReady) return;
+  // Check if workout is done today
+  const [isWorkoutDoneToday, setIsWorkoutDoneToday] = useState(false);
 
-    if (!todayTemplate) {
-      setActiveTimeline([]);
-      return;
-    }
-
-    const sync = async () => {
-      setIsSyncing(true); // Don't block UI too much, local is fast
-      try {
-        console.log("Preparing workout timeline from LOCAL history...");
-        const timeline = await prepareWorkoutTimeline(todayTemplate, workoutSettings, history);
-        setActiveTimeline(timeline);
-        console.log("Timeline ready.");
-      } catch (e) {
-        console.error("Timeline prep failed", e);
-      } finally {
-        setIsSyncing(false);
-      }
-    };
-
-    sync();
-
-  }, [todayTemplate, workoutSettings, appReady, history]);
-
-  const handleUpdateTemplate = (newTpl: WorkoutTemplate) => {
-    setTemplates(prev => {
-      const idx = prev.findIndex(t => t.id === newTpl.id);
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = newTpl;
-        AsyncStorage.setItem('saved_templates', JSON.stringify(copy));
-        return copy;
-      }
-      const newArr = [...prev, newTpl];
-      AsyncStorage.setItem('saved_templates', JSON.stringify(newArr));
-      return newArr;
-    });
+  const checkWorkoutStatus = async () => {
+    const lastDate = await getLastWorkoutDate();
+    const todayStr = new Date().toISOString().split('T')[0];
+    setIsWorkoutDoneToday(lastDate === todayStr);
   };
 
-  const handleUpdateSchedule = (dayIndex: number, tplId: string) => {
-    setSchedule(prev => {
-      const copy = { ...prev };
-      copy[dayIndex] = tplId;
-      AsyncStorage.setItem('saved_schedule', JSON.stringify(copy));
-      return copy;
-    });
-  };
-
-  const handleUpdateWorkoutSettings = async (newSettings: WorkoutSettings) => {
-    setWorkoutSettings(newSettings);
-    try {
-      await AsyncStorage.setItem('workout_settings', JSON.stringify(newSettings));
-    } catch (e) {
-      console.error("Failed to save settings", e);
-    }
-  };
-
-  const refreshHistory = async () => {
-    const h = await loadLocalHistory();
-    setHistory(h);
-  };
-
-  const startPrep = () => {
-    if (!todayTemplate) return;
-    if (activeTimeline.length === 0 && isSyncing) {
-      alert("Подождите, данные загружаются...");
-      return;
-    }
-    setView('PREP');
-  };
-
-  const handleOnboardingComplete = (
-    profile: UserProfile,
-    nutrition: NutritionPlan,
-    newSchedule?: WeeklySchedule,
-    newTemplates?: WorkoutTemplate[]
-  ) => {
+  // Handlers
+  const handleCompleteOnboarding = async (profile: UserProfile) => {
     setUserProfile(profile);
-
-    if (newSchedule) {
-      setSchedule(newSchedule);
-      AsyncStorage.setItem('saved_schedule', JSON.stringify(newSchedule));
-    }
-    if (newTemplates) {
-      setTemplates(newTemplates);
-      AsyncStorage.setItem('saved_templates', JSON.stringify(newTemplates));
-    }
-
+    await AsyncStorage.setItem('user_profile', JSON.stringify(profile));
     setShowOnboarding(false);
   };
 
-  const handleUpdateProfile = (newProfile: UserProfile) => {
-    setUserProfile(newProfile);
-    AsyncStorage.setItem('user_profile', JSON.stringify(newProfile));
+  const handleStartWorkout = (tpl: WorkoutTemplate) => {
+    setSelectedTemplate(tpl);
+    setView('PREP');
   };
+
+  const handleConfirmStart = (blocks: TimelineBlock[]) => {
+    setActiveTimeline(blocks);
+    setView('WORKOUT');
+  };
+
+  const handleWorkoutFinish = async () => {
+    // Reload history to check "Done" status
+    const h = await loadLocalHistory();
+    setHistory(h);
+    await checkWorkoutStatus();
+    setView('LOBBY');
+  };
+
+  const handleUpdateSchedule = async (dayIndex: number, tplId: string) => {
+    const updated = await new Promise<WeeklySchedule>((resolve) => {
+      setSchedule(prev => {
+        const copy = { ...prev };
+        copy[dayIndex] = tplId;
+        resolve(copy);
+        return copy;
+      });
+    });
+    await AsyncStorage.setItem('saved_schedule', JSON.stringify(updated));
+  };
+
+  const [workoutSettings, setWorkoutSettings] = useState({
+    restBetweenSets: 90,
+    soundEnabled: true
+  });
 
   if (!appReady) {
     return (
-      <View className="flex-1 bg-black items-center justify-center">
+      <View className="flex-1 bg-black justify-center items-center">
         <ActivityIndicator size="large" color="#39FF14" />
       </View>
     );
   }
 
-  // Show Onboarding if needed and not ready (or force it if we want to test)
-  // For now: if showOnboarding is true, render it.
-  if (showOnboarding) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: 'black' }}>
-        <StatusBar style="light" />
-        <OnboardingScreen onComplete={handleOnboardingComplete} />
-      </SafeAreaView>
-    );
+  // 1. Onboarding
+  if (showOnboarding && !userProfile) {
+    return <OnboardingScreen onComplete={handleCompleteOnboarding} />;
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: 'black', paddingTop: 40 }}>
-      <StatusBar style="light" />
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <StatusBar style="light" />
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#000000' }} edges={['top', 'left', 'right']}>
 
-      {view === 'LOBBY' && (
-        <Lobby
-          todayTemplate={todayTemplate}
-          todayName={DAYS_OF_WEEK[todayIndex]}
-          onStart={startPrep}
-          onOpenSettings={() => setView('SETTINGS')}
-          onAskTrainer={() => setShowTrainerModal(true)}
-          isSyncing={isSyncing}
-          totalDuration={activeTimeline.length > 0
-            ? Math.round(activeTimeline.reduce((acc, b) => acc + (b.duration || 0), 0) / 60)
-            : undefined}
-        />
-      )}
+          {view === 'LOBBY' && (
+            <Lobby
+              userProfile={userProfile}
+              todayTemplate={todayTemplate}
+              isWorkoutDoneToday={isWorkoutDoneToday}
+              onStartWorkout={() => todayTemplate && handleStartWorkout(todayTemplate)}
+              onOpenSettings={() => setView('SETTINGS')}
+            />
+          )}
 
-      {view === 'PREP' && (
-        <PrepScreen
-          onReady={() => setView('WORKOUT')}
-          onCancel={() => setView('LOBBY')}
-        />
-      )}
+          {view === 'PREP' && selectedTemplate && (
+            <PrepScreen
+              template={selectedTemplate}
+              onStart={(blocks) => handleConfirmStart(blocks)}
+              onCancel={() => setView('LOBBY')}
+            />
+          )}
 
-      {view === 'WORKOUT' && (
-        <Dashboard
-          initialTimeline={activeTimeline}
-          disableHistoryUpdate={todayTemplate?.type === 'CUSTOM'}
-          onFinish={async () => {
-            await refreshHistory();
-            setView('LOBBY');
-          }}
-        />
-      )}
+          {view === 'WORKOUT' && (
+            <ActiveWorkoutScreen
+              timeline={activeTimeline}
+              onFinish={handleWorkoutFinish}
+              soundEnabled={workoutSettings.soundEnabled}
+            />
+          )}
 
-      {view === 'SETTINGS' && (
-        <Settings
-          templates={templates}
-          schedule={schedule}
-          workoutSettings={workoutSettings}
-          userProfile={userProfile}
-          onUpdateTemplate={handleUpdateTemplate}
-          onUpdateSchedule={handleUpdateSchedule}
-          onUpdateWorkoutSettings={handleUpdateWorkoutSettings}
-          onUpdateProfile={handleUpdateProfile}
-          onHistoryChange={refreshHistory}
-          onClose={() => setView('LOBBY')}
-        />
-      )}
+          {view === 'SETTINGS' && (
+            <Settings
+              onBack={() => setView('LOBBY')}
+              schedule={schedule}
+              templates={templates}
+              onUpdateSchedule={handleUpdateSchedule}
+              settings={workoutSettings}
+              onUpdateSettings={async (s) => {
+                setWorkoutSettings(s);
+                await AsyncStorage.setItem('workout_settings', JSON.stringify(s));
+              }}
+            />
+          )}
 
-      {showTrainerModal && (
-        <TrainerModal
-          visible={showTrainerModal}
-          onClose={() => setShowTrainerModal(false)}
-          userProfile={userProfile}
-        />
-      )}
-    </View>
+        </SafeAreaView>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }

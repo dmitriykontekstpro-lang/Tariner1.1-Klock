@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { UserProfile, Gender, MainGoal, ExperienceLevel, TrainingLocation, ActivityLevel, SleepDuration, NutritionPlan, WeeklySchedule, WorkoutTemplate } from '../../types';
+import { INJURY_OPTIONS, CHRONIC_OPTIONS } from '../../data';
 import { calculateNutrition } from '../../utils/calculations';
 import { generateProgram } from '../../utils/programGenerator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -10,8 +11,6 @@ interface OnboardingScreenProps {
 }
 
 const TOTAL_STEPS = 6;
-const INJURY_OPTIONS = ['ШЕЯ', 'ПЛЕЧИ', 'СПИНА', 'ПОЯСНИЦА', 'КОЛЕНИ', 'ЗАПЯСТЬЯ'];
-const CHRONIC_OPTIONS = ['СЕРДЦЕ/ДАВЛЕНИЕ', 'АСТМА', 'НЕТ ОГРАНИЧЕНИЙ'];
 
 export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
     const scrollViewRef = useRef<ScrollView>(null);

@@ -6,7 +6,7 @@ import { CameraOverlay } from './CameraOverlay';
 import { supabase, WorkoutRecord, ExerciseResult, getOrCreateUserId } from '../lib/supabaseClient';
 import { playMetronomeClick } from '../utils/audio';
 import { Ionicons } from '@expo/vector-icons';
-import { updateLocalHistory } from '../utils/historyStore';
+import { updateLocalHistory, markWorkoutCompleted } from '../utils/historyStore';
 
 interface DashboardProps {
     initialTimeline: TimelineBlock[];
@@ -59,8 +59,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialTimeline, onFinish,
             return;
         }
 
-        // 3. NEW EXERCISE - Request weight on first set
-        if (block.type === BlockType.WORK && block.isNewExercise && block.setNumber === 1 && block.exerciseId) {
+        // 3. NEW EXERCISE - Request weight on first working set (set 2)
+        if (block.type === BlockType.WORK && block.isNewExercise && block.setNumber === 2 && block.exerciseId) {
             speak(`Новое упражнение: ${block.exerciseName}. Установите вес снаряда.`);
             setTargetExerciseId(block.exerciseId);
             setTimeout(() => {
@@ -267,6 +267,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialTimeline, onFinish,
                 console.log("[Dashboard] Saved successfully.");
             }
 
+            await markWorkoutCompleted();
             setTimeout(() => onFinish(), 1000);
         } catch (err) {
             console.error("Save fatal error", err);
@@ -430,9 +431,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ initialTimeline, onFinish,
                     </Text>
                 )}
 
-                <Text className="absolute top-12 right-6 text-xs font-mono text-gray-500">
-                    BLOCK {currentIndex + 1}/{timeline.length}
-                </Text>
+                <View className="absolute top-12 right-6 items-center">
+                    <TouchableOpacity
+                        onPress={requestExit}
+                        className="w-8 h-8 items-center justify-center mb-1"
+                    >
+                        <Ionicons name="close" size={24} color="#666" />
+                    </TouchableOpacity>
+                    <Text className="text-xs font-mono text-gray-500">
+                        {currentIndex + 1}/{timeline.length}
+                    </Text>
+                </View>
             </View>
 
             {/* BODY */}

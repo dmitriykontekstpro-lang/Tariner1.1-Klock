@@ -8,7 +8,9 @@ interface WorkoutSettingsTabProps {
 }
 
 export const WorkoutSettingsTab: React.FC<WorkoutSettingsTabProps> = ({ settings, onUpdate }) => {
-    const [localSettings, setLocalSettings] = useState<WorkoutSettings>(settings);
+    const [localSettings, setLocalSettings] = useState<WorkoutSettings>(
+        settings || { restBetweenSets: 90, restBetweenExercises: 120 }
+    );
 
     const updateSetting = (key: keyof WorkoutSettings, value: string) => {
         const numValue = parseInt(value) || 0;

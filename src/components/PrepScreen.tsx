@@ -4,9 +4,10 @@ import { speak } from '../utils/generator';
 
 interface PrepScreenProps {
     onReady: () => void; // Called when time is up or user skips
+    onCancel?: () => void;
 }
 
-export const PrepScreen: React.FC<PrepScreenProps> = ({ onReady }) => {
+export const PrepScreen: React.FC<PrepScreenProps> = ({ onReady, onCancel }) => {
     const [timeLeft, setTimeLeft] = useState(120);
 
     useEffect(() => {
@@ -63,16 +64,24 @@ export const PrepScreen: React.FC<PrepScreenProps> = ({ onReady }) => {
                 </Text>
             </View>
 
-            <View className="w-full items-center gap-4">
+            <TouchableOpacity
+                onPress={onReady}
+                className="w-full bg-flow-green py-4 rounded items-center shadow shadow-green-400"
+            >
+                <Text className="text-black font-sans font-bold text-xl uppercase tracking-widest">
+                    НАЧАТЬ СЕЙЧАС
+                </Text>
+            </TouchableOpacity>
+
+            {onCancel && (
                 <TouchableOpacity
-                    onPress={onReady}
-                    className="w-full bg-flow-green py-4 rounded items-center shadow shadow-green-400"
+                    onPress={onCancel}
+                    className="w-full py-4 items-center"
                 >
-                    <Text className="text-black font-sans font-bold text-xl uppercase tracking-widest">
-                        НАЧАТЬ СЕЙЧАС
-                    </Text>
+                    <Text className="text-gray-500 font-mono text-sm uppercase">ОТМЕНА</Text>
                 </TouchableOpacity>
-            </View>
+            )}
         </View>
+
     );
 };

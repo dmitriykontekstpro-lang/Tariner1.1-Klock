@@ -48,7 +48,7 @@ export const getOrCreateUserId = (): string => {
     // In RN, we can't synchronously get AsyncStorage.
     // We will assume that the app initializes the user ID on launch and stores it in a global variable or cache.
     // For now, let's return a default GUID if not found in memory, and rely on async init in App.tsx
-    return global.userId || 'offline-user';
+    return (global as any).userId || 'offline-user';
 };
 
 // Async init helper

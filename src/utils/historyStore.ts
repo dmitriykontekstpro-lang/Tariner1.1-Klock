@@ -75,3 +75,20 @@ export const resetExerciseHistory = async (exerciseId: string) => {
     }
     return current;
 };
+
+export const markWorkoutCompleted = async () => {
+    try {
+        await AsyncStorage.setItem('last_workout_date', new Date().toISOString());
+    } catch (e) {
+        console.error("Failed to mark workout complete", e);
+    }
+};
+
+export const getLastWorkoutDate = async (): Promise<Date | null> => {
+    try {
+        const s = await AsyncStorage.getItem('last_workout_date');
+        return s ? new Date(s) : null;
+    } catch (e) {
+        return null;
+    }
+};

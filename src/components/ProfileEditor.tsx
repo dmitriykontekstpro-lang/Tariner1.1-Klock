@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
 import { UserProfile, Gender, MainGoal, ExperienceLevel, TrainingLocation, ActivityLevel, SleepDuration } from '../types';
+import { INJURY_OPTIONS, CHRONIC_OPTIONS } from '../data';
+import { calculateNutrition } from '../utils/calculations';
 
 interface ProfileEditorProps {
     profile: UserProfile | null;
     onSave: (p: UserProfile) => void;
 }
-
-const INJURY_OPTIONS = ['ШЕЯ', 'ПЛЕЧИ', 'СПИНА', 'ПОЯСНИЦА', 'КОЛЕНИ', 'ЗАПЯСТЬЯ'];
-const CHRONIC_OPTIONS = ['СЕРДЦЕ/ДАВЛЕНИЕ', 'АСТМА', 'НЕТ ОГРАНИЧЕНИЙ'];
 
 export const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile: initialProfile, onSave }) => {
     const [profile, setProfile] = useState<Partial<UserProfile>>(initialProfile || {
@@ -167,9 +166,45 @@ export const ProfileEditor: React.FC<ProfileEditorProps> = ({ profile: initialPr
                 })}
             </View>
 
+            {sectionTitle('РАСЧЕТ ПИТАНИЯ (ИНФО)')}
+            <View className="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-4">
+                {(() => {
+                    // Calculate based on current draft profile
+                    // Cast to UserProfile assuming required fields are present (defaults handled in strict)
+                    const plan = calculateNutrition(profile as UserProfile);
+                    return (
+                        <View>
+                            <View className="flex-row justify-between mb-4 border-b border-gray-800 pb-2">
+                                <Text className="text-gray-400 text-xs text-center self-center">ÖEL (ККАЛ)</Text>
+                                <Text className="text-flow-green font-bold text-2xl">{plan.targetCalories}</Text>
+                            </View>
+                            <View className="flex-row justify-between">
+                                <View className="items-center flex-1">
+                                    <Text className="text-gray-500 text-[10px] mb-1">БЕЛКИ</Text>
+                                    <Text className="text-white font-mono font-bold">{plan.protein}г</Text>
+                                </View>
+                                <View className="w-[1px] bg-gray-800 h-full" />
+                                <View className="items-center flex-1">
+                                    <Text className="text-gray-500 text-[10px] mb-1">ЖИРЫ</Text>
+                                    <Text className="text-white font-mono font-bold">{plan.fats}г</Text>
+                                </View>
+                                <View className="w-[1px] bg-gray-800 h-full" />
+                                <View className="items-center flex-1">
+                                    <Text className="text-gray-500 text-[10px] mb-1">УГЛЕ.</Text>
+                                    <Text className="text-white font-mono font-bold">{plan.carbs}г</Text>
+                                </View>
+                            </View>
+                            <Text className="text-gray-600 text-[10px] mt-3 text-center italic">
+                                *Авто-расчет по формуле Миффлина - Сан Жеора
+                            </Text>
+                        </View>
+                    );
+                })()}
+            </View>
+
             <TouchableOpacity
                 onPress={handleSave}
-                className="mt-10 bg-flow-green py-4 rounded items-center"
+                className="mt-6 bg-flow-green py-4 rounded items-center"
             >
                 <Text className="text-black font-bold uppercase tracking-widest">СОХРАНИТЬ ПРОФИЛЬ</Text>
             </TouchableOpacity>

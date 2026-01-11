@@ -206,13 +206,13 @@ export const Settings: React.FC<SettingsProps> = ({
                     {/* SCHEDULE TAB */}
                     {activeTab === 'SCHEDULE' && (
                         <View className="gap-2">
-                            {DAYS_OF_WEEK.map((dayName, idx) => {
-                                const dataIndex = (idx + 1) % 7;
+                            {[1, 2, 3, 4, 5, 6, 0].map((dataIndex) => {
+                                const dayName = DAYS_OF_WEEK[dataIndex];
                                 const assignedTplId = schedule[dataIndex];
                                 const tpl = templates.find(t => t.id === assignedTplId);
 
                                 return (
-                                    <View key={idx} className="flex-row items-center gap-4 bg-gray-900/50 p-4 rounded border border-gray-800">
+                                    <View key={dataIndex} className="flex-row items-center gap-4 bg-gray-900/50 p-4 rounded border border-gray-800">
                                         <Text className="w-10 font-mono font-bold text-gray-500">{dayName}</Text>
                                         <TouchableOpacity
                                             className="flex-1 bg-black p-2 rounded border border-gray-700"
@@ -254,9 +254,9 @@ export const Settings: React.FC<SettingsProps> = ({
                             {loadingHistory ? (
                                 <ActivityIndicator size="large" color="#39FF14" />
                             ) : (
-                                Object.entries(EXERCISE_DB).map(([group, exercises]) => {
+                                EXERCISE_DB ? Object.entries(EXERCISE_DB).map(([group, exercises]) => {
                                     // FILTER: Only show exercises THAT HAVE HISTORY
-                                    const exercisesWithHistory = exercises.filter(ex => !!historyStats[ex.id]);
+                                    const exercisesWithHistory = exercises.filter(ex => historyStats && !!historyStats[ex.id]);
 
                                     if (exercisesWithHistory.length === 0) return null;
 
@@ -297,10 +297,10 @@ export const Settings: React.FC<SettingsProps> = ({
                                             </View>
                                         </View>
                                     );
-                                })
+                                }) : <Text className="text-red-500 mt-10 text-center">Ошибка: База упражнений не найдена</Text>
                             )}
 
-                            {!loadingHistory && Object.keys(historyStats).length === 0 && (
+                            {!loadingHistory && historyStats && Object.keys(historyStats).length === 0 && (
                                 <Text className="text-gray-600 font-mono text-center mt-10">ИСТОРИЯ ПУСТА</Text>
                             )}
                         </View>

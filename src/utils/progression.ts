@@ -241,8 +241,8 @@ export const prepareWorkoutTimeline = async (
                 isNewExercise: calculated.isNew && set === 2, // Ask for weight on first WORKING set (set 2)? Or Warmup? Usually working.
                 cycleIndex: calculated.cycleIndex,
                 muscleGroup: ex.group,
-                customLabel: setLabel // I'll add this optional prop to type later or force cast for now
-            } as any); // Cast to avoid type error until type updated
+                customLabel: setLabel
+            });
 
             // REST - use restBetweenSets from settings
             if (set < totalSets) {

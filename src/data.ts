@@ -9,6 +9,10 @@ export const COLORS = {
     GRAY: '#B0B0B0',
 };
 
+// Health Options (used in Onboarding and ProfileEditor)
+export const INJURY_OPTIONS = ['ШЕЯ', 'ПЛЕЧИ', 'СПИНА', 'ПОЯСНИЦА', 'КОЛЕНИ', 'ЗАПЯСТЬЯ'];
+export const CHRONIC_OPTIONS = ['СЕРДЦЕ/ДАВЛЕНИЕ', 'АСТМА', 'НЕТ ОГРАНИЧЕНИЙ'];
+
 // Database of exercises (Assuming same content as original, keeping it brief for this step, but in reality I will copy the full content.
 // Since the user wants "Exact Interface", I MUST copy the full DB.)
 export const EXERCISE_DB: Record<MuscleGroup, Exercise[]> = {
@@ -176,6 +180,7 @@ export const INITIAL_TEMPLATES: WorkoutTemplate[] = [
         name: 'ГРУДЬ + ПРЕСС',
         primaryGroup: MuscleGroup.CHEST,
         secondaryGroup: MuscleGroup.ABS,
+        type: 'PROGRESSIVE',
         exercises: [
             EXERCISE_DB[MuscleGroup.CHEST].find(e => e.id === 'ch_1')!,  // Жим штанги лежа
             EXERCISE_DB[MuscleGroup.CHEST].find(e => e.id === 'ch_2')!,  // Жим гантелей на наклонной
@@ -192,6 +197,7 @@ export const INITIAL_TEMPLATES: WorkoutTemplate[] = [
         name: 'СПИНА + БИЦЕПС',
         primaryGroup: MuscleGroup.BACK,
         secondaryGroup: MuscleGroup.BICEPS,
+        type: 'PROGRESSIVE',
         exercises: [
             EXERCISE_DB[MuscleGroup.BACK].find(e => e.id === 'bk_2')!,   // Подтягивания широким
             EXERCISE_DB[MuscleGroup.BACK].find(e => e.id === 'bk_3')!,   // Тяга штанги в наклоне
@@ -208,6 +214,7 @@ export const INITIAL_TEMPLATES: WorkoutTemplate[] = [
         name: 'НОГИ + ПЛЕЧИ',
         primaryGroup: MuscleGroup.LEGS,
         secondaryGroup: MuscleGroup.SHOULDERS,
+        type: 'PROGRESSIVE',
         exercises: [
             EXERCISE_DB[MuscleGroup.LEGS].find(e => e.id === 'lg_1')!,   // Приседания со штангой
             EXERCISE_DB[MuscleGroup.LEGS].find(e => e.id === 'lg_11')!,  // Жим ногами

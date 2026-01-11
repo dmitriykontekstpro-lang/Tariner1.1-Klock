@@ -20,7 +20,7 @@ export const TrainerModal: React.FC<TrainerModalProps> = ({ visible, onClose, us
             // Check cache first
             loadAdvice(false);
         }
-    }, [visible]);
+    }, [visible, userProfile]); // Added userProfile to dependencies
 
     const loadAdvice = async (force: boolean = false) => {
         setLoading(true);

@@ -34,25 +34,45 @@ export const calculateNutrition = (profile: UserProfile): NutritionPlan => {
             break;
     }
 
-    // 4. Macros (Standard Split: Protein 2g/kg (approx), Fats 1g/kg, Rest Carbs)
-    // Simplified Ratios for now:
-    // Loss: 40% P, 35% F, 25% C
-    // Gain: 30% P, 25% F, 45% C
-    // Maint: 30% P, 30% F, 40% C
+    // 4. Macros (Scientific Approach: g/kg bodyweight)
+    let proteinPerKg = 1.8;
+    let fatsPerKg = 1.0;
 
-    let pRatio = 0.3;
-    let fRatio = 0.3;
-    let cRatio = 0.4;
-
-    if (profile.mainGoal === 'WEIGHT_LOSS') {
-        pRatio = 0.4; fRatio = 0.35; cRatio = 0.25;
-    } else if (profile.mainGoal === 'MUSCLE_GAIN') {
-        pRatio = 0.3; fRatio = 0.25; cRatio = 0.45;
+    switch (profile.mainGoal) {
+        case 'WEIGHT_LOSS':
+            proteinPerKg = 2.2; // High protein to spare muscle in deficit
+            fatsPerKg = 0.9;
+            break;
+        case 'MUSCLE_GAIN':
+            proteinPerKg = 2.0; // Optimal for growth
+            fatsPerKg = 1.0;
+            break;
+        case 'RECOMPOSITION':
+        case 'STRENGTH':
+            proteinPerKg = 2.0;
+            fatsPerKg = 1.0;
+            break;
+        case 'ENDURANCE':
+            proteinPerKg = 1.6; // Slightly lower protein, higher carbs needed
+            fatsPerKg = 1.0;
+            break;
     }
 
-    const protein = Math.round((targetCalories * pRatio) / 4);
-    const fats = Math.round((targetCalories * fRatio) / 9);
-    const carbs = Math.round((targetCalories * cRatio) / 4);
+    // Calculate Grams
+    let protein = Math.round(profile.weight * proteinPerKg);
+    let fats = Math.round(profile.weight * fatsPerKg);
+
+    // Calculate Calories from Protein and Fats
+    const proteinCals = protein * 4;
+    const fatsCals = fats * 9;
+
+    // Remaining Calories for Carbs
+    let remainingCals = targetCalories - (proteinCals + fatsCals);
+
+    // Safety check: Ensure carbs aren't negative (unlikely unless very low cal)
+    if (remainingCals < 0) remainingCals = 0;
+
+    let carbs = Math.round(remainingCals / 4);
 
     return {
         bmr: Math.round(bmr),
