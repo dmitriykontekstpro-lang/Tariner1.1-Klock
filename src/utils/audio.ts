@@ -1,27 +1,49 @@
 import { Vibration } from 'react-native';
+import { Audio } from 'expo-av';
 
-// Simple metronome feedback
-// In React Native without custom native modules, real-time audio synthesis (Web Audio API) is not available.
-// We use haptic feedback (Vibration) which is effective for tempo, 
-// and we can optionally play a static click sound if we add an asset.
-// For now, we use Vibration as it's robust and built-in.
+const strongClick = require('../../assets/metronome_strong.wav');
+const weakClick = require('../../assets/metronome_weak.wav');
+const beepSound = require('../../assets/countdown_beep.wav');
 
-export const playMetronomeClick = (strong: boolean) => {
-    try {
-        if (strong) {
-            // Long vibration/Strong
-            Vibration.vibrate(100);
-        } else {
-            // Short vibration/Weak
-            Vibration.vibrate(50);
+// Cache sound objects
+let soundObjects: Record<string, Audio.Sound> = {};
+
+const loadSound = async (key: string, source: any) => {
+    if (soundObjects[key]) {
+        try {
+            await soundObjects[key].replayAsync();
+        } catch (e) {
+            // Reload if replay fails
+            const { sound } = await Audio.Sound.createAsync(source);
+            soundObjects[key] = sound;
+            await sound.playAsync();
         }
-
-        // TODO: If sound is strictly required, use expo-av to play a 'click.mp3' asset here.
-        // const sound = new Audio.Sound();
-        // await sound.loadAsync(require('../../assets/click.mp3'));
-        // await sound.playAsync();
-
-    } catch (e) {
-        console.error("Audio play failed", e);
+    } else {
+        const { sound } = await Audio.Sound.createAsync(source);
+        soundObjects[key] = sound;
+        await sound.playAsync();
     }
 };
+
+export const playMetronomeClick = async (strong: boolean) => {
+    try {
+        if (strong) {
+            Vibration.vibrate(50); // Light haptic with sound
+            await loadSound('strong', strongClick);
+        } else {
+            // No haptic or very light for weak beat
+            await loadSound('weak', weakClick);
+        }
+    } catch (e) {
+        // Fallback to vibration if sound fails
+        Vibration.vibrate(strong ? 50 : 30);
+    }
+};
+
+export const playCountdownBeep = async () => {
+    try {
+        await loadSound('beep', beepSound);
+    } catch (e) {
+        console.error("Beep failed", e);
+    }
+}
